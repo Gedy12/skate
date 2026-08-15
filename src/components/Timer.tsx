@@ -10,10 +10,10 @@ interface TimerProps {
 }
 
 export const Timer: React.FC<TimerProps> = ({ session, onFinish, onCancel }) => {
-  const { formattedTime, isFinished, timeRemaining } = useTimer(session.startTime, session.endTime);
+  const { formattedTime, isFinished, remainingTime } = useTimer(session.startTime, session.endTime);
 
   // Time remaining in minutes for color logic
-  const minutesRemaining = timeRemaining / 60000;
+  const minutesRemaining = remainingTime / 60000;
   
   let timerColor = 'text-primary';
   if (isFinished) {
