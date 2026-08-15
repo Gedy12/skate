@@ -1,26 +1,160 @@
-@import "tailwindcss";
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --primary: #198754;
+  --primary-hover: #157347;
+  --primary-light: #d1e7dd;
+  --dark: #1f2937;
+  --dark-light: #374151;
+  --background: #f8f9fc;
+  --border: #e2e8f0;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --active-blue: #0d6efd;
+  --active-blue-light: #cfe2ff;
+  --warning: #f59e0b;
+  --warning-light: #fef3c7;
+  --danger: #ef4444;
+  --danger-light: #fee2e2;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Admin UI Specific Colors */
+  --admin-sidebar: #1e293b;
+  --admin-sidebar-hover: #334155;
+  --admin-accent-blue: #4f46e5;
+  --admin-icon-purple: #8b5cf6;
+  --admin-icon-green: #10b981;
+  --admin-icon-blue: #3b82f6;
+  --admin-icon-orange: #f59e0b;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--background);
+  color: var(--text-main);
+  font-family: var(--bs-font-sans-serif);
+}
+
+.max-w-desktop {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Custom Card Styling */
+.modern-card {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.02);
+  transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+  background-color: white;
+  overflow: hidden;
+}
+
+.modern-card:active {
+  transform: scale(0.98);
+}
+
+/* Status variants for cards */
+.modern-card.status-available {
+  border-top: 4px solid var(--primary);
+}
+
+.modern-card.status-active {
+  border-top: 4px solid var(--active-blue);
+}
+
+.modern-card.status-finished {
+  border-top: 4px solid var(--danger);
+  background-color: var(--danger-light);
+}
+
+.modern-card.status-maintenance {
+  border-top: 4px solid var(--warning);
+  background-color: var(--warning-light);
+}
+
+/* Status Pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.status-pill.online {
+  background-color: var(--primary-light);
+  color: var(--primary-hover);
+}
+
+.status-pill.offline {
+  background-color: var(--danger-light);
+  color: var(--danger);
+}
+
+.status-pill.syncing {
+  background-color: var(--warning-light);
+  color: var(--warning);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.active {
+  background-color: var(--active-blue);
+}
+
+.status-dot.available {
+  background-color: var(--primary);
+}
+
+.status-dot.finished {
+  background-color: var(--danger);
+}
+
+/* Typography Helpers */
+.font-monospace-timer {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  letter-spacing: -1px;
+}
+
+/* Admin Dashboard Specific */
+.admin-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.25rem;
+}
+
+.admin-bg-purple { background-color: var(--admin-icon-purple); box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4); }
+.admin-bg-green { background-color: var(--admin-icon-green); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }
+.admin-bg-blue { background-color: var(--admin-icon-blue); box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); }
+.admin-bg-orange { background-color: var(--admin-icon-orange); box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4); }
+
+.admin-sidebar-item {
+  color: #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 4px;
+  transition: all 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-sidebar-item:hover {
+  background-color: var(--admin-sidebar-hover);
+  color: white;
+}
+
+.admin-sidebar-item.active {
+  background-color: var(--admin-accent-blue);
+  color: white;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
 }
