@@ -26,10 +26,17 @@ export const syncPendingOperations = async () => {
         op.attempts += 1;
         await saveSyncOperation(op);
 
-        if (op.operation === 'CREATE_SESSION' || op.operation === 'COMPLETE_SESSION') {
+        if (op.operation === 'CREATE_SESSION' || op.operation === 'COMPLETE_SESSION' || op.operation === 'UPDATE_SESSION') {
           // Idempotent write using the local UUID
           const sessionRef = doc(db, 'sessions', op.entityId);
-          await setDoc(sessionRef, op.data, { merge: true });
+          
+          // Sanitize data (Firestore does not support undefined values)
+          const cleanData = { ...op.data };
+          if (cleanData.pausedAt === undefined) {
+            cleanData.pausedAt = null;
+          }
+
+          await setDoc(sessionRef, cleanData, { merge: true });
           
           // Mark local session as synced
           const idb = await initDB();

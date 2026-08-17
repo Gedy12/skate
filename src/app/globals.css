@@ -25,10 +25,34 @@
   --admin-icon-orange: #f59e0b;
 }
 
+html {
+  height: -webkit-fill-available;
+}
+
 body {
+  font-family: 'Inter', sans-serif;
   background-color: var(--background);
   color: var(--text-main);
-  font-family: var(--bs-font-sans-serif);
+  /* Capacitor Native Safe Areas */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  /* Fallbacks for older Android */
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+.admin-main-content {
+  padding-top: 80px; /* Space for the fixed mobile header */
+}
+
+@media (min-width: 768px) {
+  .admin-main-content {
+    margin-left: 260px;
+    padding-top: 0;
+    transition: margin-left 0.3s ease;
+  }
 }
 
 .max-w-desktop {

@@ -9,6 +9,8 @@ interface SkateCardProps {
   onStartClick: (skate: Skate) => void;
   onFinishSession: (session: Session) => void;
   onCancelSession: (session: Session) => void;
+  onPauseSession?: (session: Session) => void;
+  onResumeSession?: (session: Session) => void;
 }
 
 export const SkateCard: React.FC<SkateCardProps> = ({ 
@@ -16,7 +18,9 @@ export const SkateCard: React.FC<SkateCardProps> = ({
   activeSession, 
   onStartClick, 
   onFinishSession, 
-  onCancelSession 
+  onCancelSession,
+  onPauseSession,
+  onResumeSession
 }) => {
   const isAvailable = skate.status === 'available';
   const isMaintenance = skate.status === 'maintenance';
@@ -38,13 +42,20 @@ export const SkateCard: React.FC<SkateCardProps> = ({
     statusText = 'ACTIVE';
     textClass = 'text-primary';
     
-    // Check if session is finished (0:00 left)
-    const timeRemaining = Math.max(0, activeSession.endTime - Date.now());
-    if (timeRemaining <= 0) {
-      statusClass = 'status-finished';
-      dotClass = 'finished';
-      statusText = 'FINISHED';
-      textClass = 'text-danger';
+    if (activeSession.status === 'paused') {
+      statusClass = 'status-paused';
+      dotClass = 'bg-warning';
+      statusText = 'PAUSED';
+      textClass = 'text-warning';
+    } else {
+      // Check if session is finished (0:00 left)
+      const timeRemaining = Math.max(0, activeSession.endTime - Date.now());
+      if (timeRemaining <= 0) {
+        statusClass = 'status-finished';
+        dotClass = 'finished';
+        statusText = 'FINISHED';
+        textClass = 'text-danger';
+      }
     }
   }
 
@@ -52,7 +63,7 @@ export const SkateCard: React.FC<SkateCardProps> = ({
   const formattedNumber = skate.skateNumber.toString().padStart(2, '0');
 
   return (
-    <div className={`modern-card ${statusClass} h-100 d-flex flex-column`}>
+    <div className={`modern-card ${statusClass} h-100 d-flex flex-column`} style={activeSession?.status === 'paused' ? { border: '2px dashed #ffc107', opacity: 0.9 } : undefined}>
       <div className="p-3 pb-2 d-flex justify-content-between align-items-start">
         <div>
           <h2 className="fw-bold m-0" style={{ letterSpacing: '-1px' }}>{formattedNumber}</h2>
@@ -90,6 +101,8 @@ export const SkateCard: React.FC<SkateCardProps> = ({
               session={activeSession} 
               onFinish={onFinishSession}
               onCancel={onCancelSession}
+              onPause={onPauseSession}
+              onResume={onResumeSession}
             />
           </div>
         )}

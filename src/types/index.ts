@@ -7,7 +7,7 @@ export interface Skate {
   updatedAt: number;
 }
 
-export type SessionStatus = 'active' | 'completed' | 'cancelled';
+export type SessionStatus = 'active' | 'completed' | 'cancelled' | 'paused';
 
 export interface Session {
   id: string; // UUID generated locally
@@ -20,12 +20,13 @@ export interface Session {
   status: SessionStatus;
   synced: boolean;
   completedAt?: number;
+  pausedAt?: number | null;
   trainerId?: string;
   createdAt: number;
   updatedAt: number;
 }
 
-export type SyncOperationType = 'CREATE_SESSION' | 'COMPLETE_SESSION' | 'UPDATE_SKATE';
+export type SyncOperationType = 'CREATE_SESSION' | 'COMPLETE_SESSION' | 'UPDATE_SESSION' | 'UPDATE_SKATE';
 
 export interface SyncOperation {
   id: string; // UUID

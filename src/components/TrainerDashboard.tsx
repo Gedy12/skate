@@ -7,12 +7,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { 
   getSkates, getSessions, saveSkate, saveSession, saveSyncOperation 
 } from '@/lib/indexeddb';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { syncPendingOperations } from '@/lib/sync';
 
 export const TrainerDashboard: React.FC = () => {
   const [skates, setSkates] = useState<Skate[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSkate, setSelectedSkate] = useState<Skate | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
   
   // Temporary hardcoded price config, in production this is fetched from Firebase settings
   const priceConfig = { durationMinutes: 30, price: 150 };
@@ -42,11 +45,49 @@ export const TrainerDashboard: React.FC = () => {
 
   useEffect(() => {
     loadLocalData();
+    setIsOnline(navigator.onLine);
     
-    // Poll for updates if needed or setup a local event system
+    // Poll for local changes if another tab/process updates DB
     const interval = setInterval(loadLocalData, 1000);
-    return () => clearInterval(interval);
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
+
+  // Hydrate local DB from Firebase if online
+  useEffect(() => {
+    let skatesUnsub = () => {};
+    let sessionsUnsub = () => {};
+
+    if (isOnline) {
+      skatesUnsub = onSnapshot(collection(db, 'skates'), (snapshot) => {
+        snapshot.docs.forEach(doc => {
+          saveSkate(doc.data() as Skate);
+        });
+      });
+
+      // Sync the last 50 sessions (covers active ones)
+      const q = query(collection(db, 'sessions'), orderBy('updatedAt', 'desc'), limit(50));
+      sessionsUnsub = onSnapshot(q, (snapshot) => {
+        snapshot.docs.forEach(doc => {
+          saveSession(doc.data() as Session);
+        });
+      });
+    }
+
+    return () => {
+      skatesUnsub();
+      sessionsUnsub();
+    };
+  }, [isOnline]);
 
   const handleStartClick = (skate: Skate) => {
     setSelectedSkate(skate);
@@ -170,6 +211,49 @@ export const TrainerDashboard: React.FC = () => {
     syncPendingOperations();
   };
 
+  const handlePauseSession = async (session: Session) => {
+    const now = Date.now();
+    const updatedSession = { ...session, status: 'paused' as const, pausedAt: now, updatedAt: now };
+    await saveSession(updatedSession);
+    await saveSyncOperation({
+      id: uuidv4(),
+      operation: 'UPDATE_SESSION',
+      entityId: session.id,
+      data: updatedSession,
+      createdAt: now,
+      attempts: 0,
+      status: 'pending'
+    });
+    loadLocalData();
+    syncPendingOperations();
+  };
+
+  const handleResumeSession = async (session: Session) => {
+    if (!session.pausedAt) return;
+    const now = Date.now();
+    const pausedDuration = now - session.pausedAt;
+    const updatedSession = { 
+       ...session, 
+       status: 'active' as const, 
+       endTime: session.endTime + pausedDuration,
+       pausedAt: null, 
+       updatedAt: now 
+    };
+
+    await saveSession(updatedSession);
+    await saveSyncOperation({
+      id: uuidv4(),
+      operation: 'UPDATE_SESSION',
+      entityId: session.id,
+      data: updatedSession,
+      createdAt: now,
+      attempts: 0,
+      status: 'pending'
+    });
+    loadLocalData();
+    syncPendingOperations();
+  };
+
   const activeCount = skates.filter(s => s.status === 'active').length;
   const availableCount = skates.filter(s => s.status === 'available').length;
 
@@ -194,7 +278,7 @@ export const TrainerDashboard: React.FC = () => {
       {/* Skate Grid */}
       <div className="row g-3">
         {skates.map(skate => {
-          const activeSession = sessions.find(s => s.skateId === skate.id && s.status === 'active');
+          const activeSession = sessions.find(s => s.skateId === skate.id && (s.status === 'active' || s.status === 'paused'));
           return (
             <div key={skate.id} className="col-6 col-md-4 col-lg-3">
               <SkateCard 
@@ -203,6 +287,8 @@ export const TrainerDashboard: React.FC = () => {
                 onStartClick={handleStartClick}
                 onFinishSession={handleFinishSession}
                 onCancelSession={handleCancelSession}
+                onPauseSession={handlePauseSession}
+                onResumeSession={handleResumeSession}
               />
             </div>
           );

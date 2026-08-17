@@ -7,14 +7,15 @@ import { secondaryAuth } from '@/lib/secondaryFirebase';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
-    completedRounds: 0,
     totalRevenue: 0,
+    yesterdaysRevenue: 0,
+    todaysRevenue: 0,
     totalSkates: 16,
     activeSkates: 0,
     availableSkates: 16,
-    todaysRevenue: 0,
   });
 
+  const [weeklyData, setWeeklyData] = useState<{ day: string; value: number }[]>([]);
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [trainers, setTrainers] = useState<any[]>([]);
 
@@ -89,11 +90,20 @@ export default function AdminDashboard() {
     // Listen to sessions
     const sessionsUnsub = onSnapshot(collection(db, 'sessions'), (snapshot) => {
       let totalRev = 0;
-      let totalRounds = 0;
       let todayRev = 0;
+      let yesterdayRev = 0;
       
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const startOfYesterday = startOfDay - 24 * 60 * 60 * 1000;
+
+      // Prepare weekly data buckets
+      const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const last7Days: { day: string; value: number; timestamp: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        last7Days.push({ day: weekDays[d.getDay()], value: 0, timestamp: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() });
+      }
 
       const sessionsList: any[] = [];
 
@@ -102,23 +112,33 @@ export default function AdminDashboard() {
         sessionsList.push(data);
         
         if (data.status === 'completed') {
-          totalRounds++;
           totalRev += data.price || 0;
           
           if (data.completedAt >= startOfDay) {
             todayRev += data.price || 0;
+          } else if (data.completedAt >= startOfYesterday && data.completedAt < startOfDay) {
+            yesterdayRev += data.price || 0;
+          }
+          
+          // Add to weekly chart data
+          const completedDate = new Date(data.completedAt);
+          const completedStartOfDay = new Date(completedDate.getFullYear(), completedDate.getMonth(), completedDate.getDate()).getTime();
+          const dayBucket = last7Days.find(d => d.timestamp === completedStartOfDay);
+          if (dayBucket) {
+            dayBucket.value += data.price || 0;
           }
         }
       });
       
       sessionsList.sort((a, b) => b.createdAt - a.createdAt);
       setRecentSessions(sessionsList.slice(0, 5));
+      setWeeklyData(last7Days.map(d => ({ day: d.day, value: d.value })));
 
       setStats(prev => ({
         ...prev,
-        completedRounds: totalRounds,
         totalRevenue: totalRev,
-        todaysRevenue: todayRev
+        todaysRevenue: todayRev,
+        yesterdaysRevenue: yesterdayRev
       }));
     });
 
@@ -146,45 +166,74 @@ export default function AdminDashboard() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Static chart rendering
-  const renderChart = () => (
-    <div className="mt-4 pt-3 border-top position-relative" style={{ height: '200px' }}>
-      <div className="d-flex flex-column justify-content-between h-100 text-muted small" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '60px' }}>
-        <span>1,000 ETB</span>
-        <span>750 ETB</span>
-        <span>500 ETB</span>
-        <span>250 ETB</span>
-        <span>0 ETB</span>
+  // Dynamic chart rendering
+  const renderChart = () => {
+    // Find max value for the Y-axis scale, default to 1000 if empty or all 0
+    let maxVal = Math.max(...weeklyData.map(d => d.value), 0);
+    if (maxVal === 0) maxVal = 1000;
+    
+    // Round max to nearest 100 for nice scale
+    const scaleMax = Math.ceil(maxVal / 100) * 100;
+    
+    return (
+      <div className="mt-4 pt-3 border-top position-relative" style={{ height: '200px' }}>
+        <div className="d-flex flex-column justify-content-between h-100 text-muted small" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '60px' }}>
+          <span>{scaleMax.toLocaleString()} ETB</span>
+          <span>{Math.round(scaleMax * 0.75).toLocaleString()} ETB</span>
+          <span>{Math.round(scaleMax * 0.5).toLocaleString()} ETB</span>
+          <span>{Math.round(scaleMax * 0.25).toLocaleString()} ETB</span>
+          <span>0 ETB</span>
+        </div>
+        <div className="h-100" style={{ marginLeft: '70px', position: 'relative' }}>
+          {/* Horizontal grid lines */}
+          {[0, 25, 50, 75, 100].map(pct => (
+            <div key={pct} style={{ position: 'absolute', top: `${pct}%`, left: 0, right: 0, borderTop: '1px dashed #e2e8f0' }}></div>
+          ))}
+          {/* Fake chart line */}
+          <div style={{ position: 'absolute', bottom: '0', left: 0, right: 0, height: '2px', backgroundColor: '#3b82f6', top: '100%' }}></div>
+          
+          {/* Points */}
+          {weeklyData.map((d, i) => {
+            const pctHeight = (d.value / scaleMax) * 100;
+            return (
+              <div key={d.day + i} style={{ position: 'absolute', bottom: '-25px', left: `${(i / 6) * 100}%`, transform: 'translateX(-50%)', textAlign: 'center' }}>
+                <div 
+                  style={{ 
+                    width: '8px', 
+                    height: '8px', 
+                    borderRadius: '50%', 
+                    backgroundColor: d.value > 0 ? '#3b82f6' : 'white', 
+                    border: '2px solid #3b82f6', 
+                    margin: '0 auto', 
+                    position: 'absolute', 
+                    bottom: `calc(${pctHeight}% + 25px)`, // Positioning point based on value
+                    left: '50%', 
+                    transform: 'translate(-50%, 50%)',
+                    zIndex: 2
+                  }}
+                  title={`${d.value} ETB`}
+                ></div>
+                <span className="text-muted small">{d.day}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="text-center mt-4 pt-3">
+          <span className="badge bg-light text-primary border border-primary"><i className="bi bi-dash fw-bold"></i> Revenue (ETB)</span>
+        </div>
       </div>
-      <div className="h-100" style={{ marginLeft: '70px', position: 'relative' }}>
-        {/* Horizontal grid lines */}
-        {[0, 25, 50, 75, 100].map(pct => (
-          <div key={pct} style={{ position: 'absolute', top: `${pct}%`, left: 0, right: 0, borderTop: '1px dashed #e2e8f0' }}></div>
-        ))}
-        {/* Fake chart line */}
-        <div style={{ position: 'absolute', bottom: '0', left: 0, right: 0, height: '2px', backgroundColor: '#3b82f6', top: '100%' }}></div>
-        
-        {/* Points */}
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
-          <div key={day} style={{ position: 'absolute', bottom: '-25px', left: `${(i / 6) * 100}%`, transform: 'translateX(-50%)', textAlign: 'center' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'white', border: '2px solid #3b82f6', margin: '0 auto', position: 'absolute', top: '-25px', left: '50%', transform: 'translate(-50%, -50%)' }}></div>
-            <span className="text-muted small">{day}</span>
-          </div>
-        ))}
-      </div>
-      <div className="text-center mt-4 pt-3">
-        <span className="badge bg-light text-primary border border-primary"><i className="bi bi-dash fw-bold"></i> Revenue (ETB)</span>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="d-flex min-vh-100 position-relative" style={{ backgroundColor: 'var(--background)' }}>
       {/* Mobile Header (Hamburger) */}
       <div className="d-md-none position-fixed top-0 start-0 end-0 bg-white shadow-sm p-3 d-flex justify-content-between align-items-center" style={{ zIndex: 1040 }}>
         <div className="d-flex align-items-center gap-2">
-          <i className="bi bi-vinyl fs-3 text-primary"></i>
-          <h5 className="fw-bold m-0" style={{ letterSpacing: '0.5px' }}>SKATE HOUSE</h5>
+          <div className="bg-dark rounded overflow-hidden d-flex justify-content-center align-items-center" style={{ width: '28px', height: '28px' }}>
+            <img src="/icon.jpg" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+          <h5 className="fw-bold m-0 text-dark" style={{ letterSpacing: '0.5px' }}>LEEQAA SKATE HOUSE</h5>
         </div>
         <button className="btn btn-light border-0" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           <i className="bi bi-list fs-2"></i>
@@ -195,8 +244,10 @@ export default function AdminDashboard() {
       <aside className={`flex-column text-white position-fixed top-0 bottom-0 left-0 transition-transform ${isMobileMenuOpen ? 'd-flex' : 'd-none d-md-flex'}`} style={{ width: '260px', backgroundColor: 'var(--admin-sidebar)', zIndex: 1050 }}>
         <div className="p-4 d-flex justify-content-between align-items-center mb-3">
           <div className="d-flex align-items-center gap-2">
-            <i className="bi bi-vinyl fs-3"></i>
-            <h5 className="fw-bold m-0" style={{ letterSpacing: '0.5px' }}>SKATE HOUSE</h5>
+            <div className="bg-white rounded overflow-hidden d-flex justify-content-center align-items-center" style={{ width: '32px', height: '32px' }}>
+              <img src="/icon.jpg" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <h5 className="fw-bold m-0" style={{ letterSpacing: '0.5px' }}>LEEQAA SKATE HOUSE</h5>
           </div>
           <button className="btn btn-link text-white d-md-none p-0" onClick={() => setIsMobileMenuOpen(false)}>
             <i className="bi bi-x-lg fs-4"></i>
@@ -234,8 +285,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-grow-1 pt-5 pt-md-0" style={{ marginLeft: '0', transition: 'margin 0.3s' }}>
-        <div className="d-none d-md-block" style={{ width: '260px', float: 'left', height: '1px' }}></div>
+      <main className="flex-grow-1 pt-5 pt-md-0 admin-main-content">
         <div className="p-4 p-md-5 w-100" style={{ maxWidth: '1600px' }}>
           {activeTab === 'dashboard' && (
             <>
@@ -259,10 +309,10 @@ export default function AdminDashboard() {
                 <div className="col">
                   <div className="modern-card p-3 h-100 d-flex flex-column justify-content-center">
                     <div className="d-flex gap-3 align-items-center">
-                      <div className="admin-icon-box admin-bg-purple"><i className="bi bi-trophy-fill"></i></div>
+                      <div className="admin-icon-box admin-bg-blue"><i className="bi bi-wallet-fill fs-2"></i></div>
                       <div>
-                        <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>COMPLETED ROUNDS</h6>
-                        <h3 className="fw-bold m-0 lh-1">{stats.completedRounds}</h3>
+                        <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>TOTAL REVENUE</h6>
+                        <h3 className="fw-bold m-0 lh-1 text-primary">{stats.totalRevenue.toLocaleString()} <span className="fs-6 text-muted">ETB</span></h3>
                       </div>
                     </div>
                     <div className="mt-3 text-start">
@@ -274,14 +324,14 @@ export default function AdminDashboard() {
                 <div className="col">
                   <div className="modern-card p-3 h-100 d-flex flex-column justify-content-center">
                     <div className="d-flex gap-3 align-items-center">
-                      <div className="admin-icon-box admin-bg-green"><i className="bi bi-wallet2"></i></div>
+                      <div className="admin-icon-box" style={{ backgroundColor: 'rgba(108, 117, 125, 0.1)', color: '#6c757d' }}><i className="bi bi-calendar2-x-fill fs-2"></i></div>
                       <div>
-                        <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>TODAY'S REVENUE</h6>
-                        <h3 className="fw-bold m-0 lh-1">{stats.todaysRevenue.toLocaleString()} ETB</h3>
+                        <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>YESTERDAY</h6>
+                        <h3 className="fw-bold m-0 lh-1 text-secondary">{stats.yesterdaysRevenue.toLocaleString()} <span className="fs-6 text-muted">ETB</span></h3>
                       </div>
                     </div>
                     <div className="mt-3 text-start">
-                      <span className="text-success fw-bold" style={{ fontSize: '0.75rem' }}>↑ 0% from yesterday</span>
+                      <span className="text-muted fw-bold" style={{ fontSize: '0.75rem' }}>Previous day total</span>
                     </div>
                   </div>
                 </div>
@@ -289,14 +339,20 @@ export default function AdminDashboard() {
                 <div className="col">
                   <div className="modern-card p-3 h-100 d-flex flex-column justify-content-center">
                     <div className="d-flex gap-3 align-items-center">
-                      <div className="admin-icon-box admin-bg-blue"><i className="bi bi-bicycle"></i></div>
+                      <div className="admin-icon-box admin-bg-green"><i className="bi bi-calendar2-check-fill fs-2"></i></div>
                       <div>
-                        <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>TOTAL SKATES</h6>
-                        <h3 className="fw-bold m-0 lh-1">{stats.totalSkates}</h3>
+                        <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>TODAY'S REVENUE</h6>
+                        <h3 className="fw-bold m-0 lh-1 text-success">{stats.todaysRevenue.toLocaleString()} <span className="fs-6 text-muted">ETB</span></h3>
                       </div>
                     </div>
                     <div className="mt-3 text-start">
-                      <span className="text-primary fw-bold" style={{ fontSize: '0.75rem' }}>All skates in system</span>
+                      <span className={`fw-bold ${stats.todaysRevenue >= stats.yesterdaysRevenue ? 'text-success' : 'text-danger'}`} style={{ fontSize: '0.75rem' }}>
+                        {stats.yesterdaysRevenue > 0 ? (
+                          stats.todaysRevenue >= stats.yesterdaysRevenue 
+                            ? `↑ +${Math.round(((stats.todaysRevenue - stats.yesterdaysRevenue) / stats.yesterdaysRevenue) * 100)}% from yesterday`
+                            : `↓ ${Math.round(((stats.todaysRevenue - stats.yesterdaysRevenue) / stats.yesterdaysRevenue) * 100)}% from yesterday`
+                        ) : 'No data yesterday'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -306,7 +362,7 @@ export default function AdminDashboard() {
                     <div className="d-flex gap-3 align-items-center">
                       <div className="admin-icon-box admin-bg-orange"><i className="bi bi-play-fill fs-1"></i></div>
                       <div>
-                        <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>ACTIVE</h6>
+                        <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>ACTIVE SKATES</h6>
                         <h3 className="fw-bold m-0 lh-1">{stats.activeSkates}</h3>
                       </div>
                     </div>
@@ -319,7 +375,7 @@ export default function AdminDashboard() {
                 <div className="col">
                   <div className="modern-card p-3 h-100 d-flex flex-column justify-content-center">
                     <div className="d-flex gap-3 align-items-center">
-                      <div className="admin-icon-box admin-bg-green"><i className="bi bi-check-circle-fill"></i></div>
+                      <div className="admin-icon-box admin-bg-green"><i className="bi bi-check-circle-fill fs-2"></i></div>
                       <div>
                         <h6 className="text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.5px' }}>AVAILABLE</h6>
                         <h3 className="fw-bold m-0 lh-1">{stats.availableSkates}</h3>
@@ -364,7 +420,8 @@ export default function AdminDashboard() {
                               <td className="pe-4 py-3">
                                 <span className={`badge rounded-pill px-3 py-2 fw-bold ${
                                   session.status === 'completed' ? 'bg-success' : 
-                                  session.status === 'active' ? 'bg-primary' : 'bg-danger'
+                                  session.status === 'active' ? 'bg-primary' : 
+                                  session.status === 'paused' ? 'bg-warning text-dark' : 'bg-danger'
                                 }`}>
                                   {session.status.toUpperCase()}
                                 </span>

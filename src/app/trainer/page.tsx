@@ -15,11 +15,11 @@ export default function TrainerPage() {
     <div className="d-flex flex-column vh-100 bg-light">
       <header className="text-white p-3 d-flex justify-content-between align-items-center shadow-sm" style={{ backgroundColor: 'var(--dark)' }}>
         <div className="d-flex align-items-center gap-2">
-          <div className="bg-white rounded p-1 d-flex justify-content-center align-items-center" style={{ width: '32px', height: '32px' }}>
-            <i className="bi bi-person-fill text-dark fs-5"></i>
+          <div className="bg-white rounded overflow-hidden d-flex justify-content-center align-items-center" style={{ width: '36px', height: '36px' }}>
+            <img src="/icon.jpg" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div>
-            <h5 className="mb-0 fw-bold" style={{ letterSpacing: '-0.5px' }}>SKATE HOUSE</h5>
+            <h5 className="mb-0 fw-bold" style={{ letterSpacing: '-0.5px' }}>LEEQAA SKATE HOUSE</h5>
             <small className="text-light opacity-75" style={{ fontSize: '0.75rem' }}>Trainer Dashboard</small>
           </div>
         </div>
