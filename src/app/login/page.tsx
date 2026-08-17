@@ -85,7 +85,7 @@ export default function LoginPage() {
                   type="email" 
                   className="form-control border-start-0 border-primary border-opacity-25 py-2" 
                   style={{ borderRadius: '0 8px 8px 0', boxShadow: 'none', backgroundColor: '#f8f9fa' }}
-                  placeholder="geda@gmail.com"
+                  placeholder="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required 
