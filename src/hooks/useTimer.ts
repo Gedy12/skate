@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export const useTimer = (startTime: number, endTime: number, pausedAt?: number) => {
+export const useTimer = (startTime: number, endTime: number, pausedAt?: number | null) => {
   const calculateRemaining = () => {
     const now = pausedAt || Date.now();
     return Math.max(0, endTime - now);
