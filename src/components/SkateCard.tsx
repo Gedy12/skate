@@ -66,7 +66,14 @@ export const SkateCard: React.FC<SkateCardProps> = ({
     <div className={`modern-card ${statusClass} h-100 d-flex flex-column`} style={activeSession?.status === 'paused' ? { border: '2px dashed #ffc107', opacity: 0.9 } : undefined}>
       <div className="p-3 pb-2 d-flex justify-content-between align-items-start">
         <div>
-          <h2 className="fw-bold m-0" style={{ letterSpacing: '-1px' }}>{formattedNumber}</h2>
+          <h2 className="fw-bold m-0 d-flex align-items-center gap-2" style={{ letterSpacing: '-1px' }}>
+            {formattedNumber}
+            {activeSession && (
+              <span className="badge bg-light text-secondary border px-2 py-1 rounded-pill" style={{ fontSize: '0.65rem', letterSpacing: '0', verticalAlign: 'middle' }}>
+                {activeSession.durationMinutes}m
+              </span>
+            )}
+          </h2>
           <small className="text-muted fw-bold" style={{ fontSize: '0.65rem', letterSpacing: '1px' }}>SKATE</small>
         </div>
         <div className="d-flex align-items-center gap-1">
